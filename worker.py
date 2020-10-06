@@ -182,7 +182,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
     if os.path.exists(metadata_path):
         logger.info("get_bundle :: Fetching extra files specified in metadata for {}".format(metadata_path))
         with open(metadata_path) as mf:
-            metadata = yaml.load(mf)
+            metadata = yaml.full_load(mf)
 
     if isinstance(metadata, dict):
         for (k, v) in list(metadata.items()):
