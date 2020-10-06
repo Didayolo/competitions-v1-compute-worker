@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import sys
 import hashlib
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 import json
 import logging.config
@@ -128,7 +128,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
 
     logger.debug("get_bundle :: Getting %s from %s" % (file_name, url))
 
-    url_hash = hashlib.sha256(url_without_params).hexdigest()
+    url_hash = hashlib.sha256(url_without_params.encode('utf-8')).hexdigest()
     cached_bundle_file_path = join(cache_dir, url_hash)
     if not os.path.exists(cached_bundle_file_path):
         # Also make sure cache dir exists
@@ -137,7 +137,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
         retries = 0 
         while retries < 3:
             try:
-                urllib.urlretrieve(url, cached_bundle_file_path)
+                urllib.request.urlretrieve(url, cached_bundle_file_path)
                 break
             except:
                 retries += 1
@@ -185,7 +185,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
             metadata = yaml.load(mf)
 
     if isinstance(metadata, dict):
-        for (k, v) in metadata.items():
+        for (k, v) in list(metadata.items()):
             if k not in ("description", "command", "exitCode", "elapsedTime", "stdout", "stderr", "submitted-by", "submitted-at"):
                 if isinstance(v, str):
                     logger.debug("get_bundle :: Fetching recursive bundle %s %s %s" % (bundle_path, k, v))
@@ -333,6 +333,7 @@ def run(task_id, task_args):
         run_dir = join(root_dir, 'run')
         shared_dir = tempfile.mkdtemp(dir=temp_dir)
         hidden_ref_dir = ''
+        data_dir = '/data'
 
         # Fetch and stage the bundles
         logger.info("Fetching bundles...")
@@ -542,6 +543,7 @@ def run(task_id, task_args):
                     # Set the right volume
                     '-v', '{0}:{0}'.format(run_dir),
                     '-v', '{0}:{0}'.format(shared_dir),
+                    '-v', '{0}:/data:ro'.format(data_dir),
                     # Set aside 512m memory for the host
                     '--memory', '{}MB'.format(available_memory_mib - 512),
                     # Don't buffer python output, so we don't lose any
@@ -620,6 +622,7 @@ def run(task_id, task_args):
                     # Set the right volume
                     '-v', '{0}:{0}'.format(run_dir),
                     '-v', '{0}:{0}'.format(shared_dir),
+                    '-v', '{0}:/data:ro'.format(data_dir),
                     # Set aside 512m memory for the host
                     '--memory', '{}MB'.format(available_memory_mib - 512),
                     # Add the participants submission dir to PYTHONPATH
