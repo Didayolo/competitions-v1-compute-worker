@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import sys
 import hashlib
-import urllib.request, urllib.parse, urllib.error
+import urllib
 
 import json
 import logging.config
@@ -24,7 +24,7 @@ import yaml
 from os.path import join, exists
 from glob import glob
 from subprocess import Popen, call, check_output, CalledProcessError, PIPE
-from zipfile import ZipFile, BadZipfile
+from zipfile import ZipFile, BadZipfile, ZIP_DEFLATED
 
 from billiard import SoftTimeLimitExceeded
 from celery import Celery, task
@@ -128,7 +128,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
 
     logger.debug("get_bundle :: Getting %s from %s" % (file_name, url))
 
-    url_hash = hashlib.sha256(url_without_params.encode('utf-8')).hexdigest()
+    url_hash = hashlib.sha256(url_without_params).hexdigest()
     cached_bundle_file_path = join(cache_dir, url_hash)
     if not os.path.exists(cached_bundle_file_path):
         # Also make sure cache dir exists
@@ -137,7 +137,7 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
         retries = 0 
         while retries < 3:
             try:
-                urllib.request.urlretrieve(url, cached_bundle_file_path)
+                urllib.urlretrieve(url, cached_bundle_file_path)
                 break
             except:
                 retries += 1
@@ -182,10 +182,10 @@ def get_bundle(cache_dir, root_dir, relative_dir, url):
     if os.path.exists(metadata_path):
         logger.info("get_bundle :: Fetching extra files specified in metadata for {}".format(metadata_path))
         with open(metadata_path) as mf:
-            metadata = yaml.full_load(mf)
+            metadata = yaml.load(mf)
 
     if isinstance(metadata, dict):
-        for (k, v) in list(metadata.items()):
+        for (k, v) in metadata.items():
             if k not in ("description", "command", "exitCode", "elapsedTime", "stdout", "stderr", "submitted-by", "submitted-at"):
                 if isinstance(v, str):
                     logger.debug("get_bundle :: Fetching recursive bundle %s %s %s" % (bundle_path, k, v))
@@ -249,6 +249,17 @@ def run_wrapper(task_id, task_args):
     except SoftTimeLimitExceeded:
         _send_update(task_id, {'status': 'failed'}, task_args['secret'])
 
+def zip_archive(src, dst):
+    """ Zip files using ZipFile with Zip64 mode.
+        src : 'folder_to_zip'
+        dst : 'results.zip'
+    """
+    with ZipFile(dst, "w", ZIP_DEFLATED, allowZip64=True) as zf:
+                for root, _, filenames in os.walk(os.path.basename(src)):
+                    for name in filenames:
+                        absname = os.path.join(root, name)
+                        arcname = os.path.relpath(absname, src)
+                        zf.write(absname, arcname)
 
 def run(task_id, task_args):
     """
@@ -768,14 +779,22 @@ def run(task_id, task_args):
         if os.path.exists(private_dir):
             logger.info("Packing private results...")
             private_output_file = join(root_dir, 'run', 'private_output.zip')
-            shutil.make_archive(os.path.splitext(private_output_file)[0], 'zip', output_dir)
+            shutil.make_archive(os.path.splitext(private_output_file)[0], 'zip', output_dir) #TODO change here also
             put_blob(private_output_url, private_output_file)
             shutil.rmtree(private_dir, ignore_errors=True)
 
         # Pack results and send them to Blob storage
         logger.info("Packing results...")
-        output_file = join(root_dir, 'run', 'output.zip')
-        shutil.make_archive(os.path.splitext(output_file)[0], 'zip', output_dir)
+        output_file = join(root_dir, 'run', 'output.zip') # output_dir + '.zip'
+        
+        # change this line to zip big files (using Zip64)
+        #shutil.make_archive(os.path.splitext(output_file)[0], 'zip', output_dir)
+        
+        # new version
+        # output_dir = src = 'output'
+        # output_file = dst = 'output.zip'        
+        zip_archive(output_dir, output_file)
+        
         put_blob(output_url, output_file)
 
         if detailed_results_url:
