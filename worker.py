@@ -252,6 +252,15 @@ def run_wrapper(task_id, task_args):
     except SoftTimeLimitExceeded:
         _send_update(task_id, {'status': 'failed'}, task_args['secret'])
 
+def truncate(filepath, size):
+    """ Truncate the file located in filepath up to size bytes.
+        filepath : location of the file
+        size : size in bytes
+    """
+    f = open(filepath, 'w')
+    f.truncate(size)
+    f.close()
+
 def zip_archive(src, dst):
     """ Zip files using ZipFile with Zip64 mode.
         src : 'folder_to_zip'
@@ -772,8 +781,8 @@ def run(task_id, task_args):
         put_blob(stdout_url, stdout_file)
         put_blob(stderr_url, stderr_file)
         if CUT_LOG: # limit log size
-            os.truncate(stdout_file, LOG_LIMIT)
-            os.truncate(stderr_file, LOG_LIMIT)
+            truncate(stdout_file, LOG_LIMIT)
+            truncate(stderr_file, LOG_LIMIT)
 
         if run_ingestion_program:
             ingestion_stdout.close()
@@ -781,8 +790,8 @@ def run(task_id, task_args):
             put_blob(ingestion_program_output_url, ingestion_stdout_file)
             put_blob(ingestion_program_stderr_url, ingestion_stderr_file)
             if CUT_LOG: # limit log size
-                os.truncate(ingestion_stdout_file, LOG_LIMIT)
-                os.truncate(ingestion_stderr_file, LOG_LIMIT)
+                truncate(ingestion_stdout_file, LOG_LIMIT)
+                truncate(ingestion_stderr_file, LOG_LIMIT)
 
         private_dir = join(output_dir, 'private')
         if os.path.exists(private_dir):
