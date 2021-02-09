@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:16.04
 
 RUN apt-get update
 RUN apt-get install curl wget -y
@@ -22,7 +22,7 @@ RUN apt-get install entr -y
 WORKDIR /worker/
 
 # Install Python stuff we need to listen to the queue
-RUN apt-get install python3.8 python-pip -y
+RUN apt-get install python-pip -y
 RUN pip install -U pip
 COPY requirements.txt /worker/requirements.txt
 RUN pip install -r requirements.txt
