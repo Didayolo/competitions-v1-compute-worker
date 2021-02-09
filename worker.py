@@ -41,6 +41,9 @@ logger = logging.getLogger()
 # Stop duplicate log entries in Celery
 logger.propagate = False
 
+CUT_LOG = True
+LOG_LIMIT = 2097152 # log limit in bytes
+
 
 def _find_only_folder_with_metadata(path):
     """Looks through a bundle for a single folder that contains a metadata file and
@@ -768,12 +771,18 @@ def run(task_id, task_args):
 
         put_blob(stdout_url, stdout_file)
         put_blob(stderr_url, stderr_file)
+        if CUT_LOG: # limit log size
+            os.truncate(stdout_file, LOG_LIMIT)
+            os.truncate(stderr_file, LOG_LIMIT)
 
         if run_ingestion_program:
             ingestion_stdout.close()
             ingestion_stderr.close()
             put_blob(ingestion_program_output_url, ingestion_stdout_file)
             put_blob(ingestion_program_stderr_url, ingestion_stderr_file)
+            if CUT_LOG: # limit log size
+                os.truncate(ingestion_stdout_file, LOG_LIMIT)
+                os.truncate(ingestion_stderr_file, LOG_LIMIT)
 
         private_dir = join(output_dir, 'private')
         if os.path.exists(private_dir):
